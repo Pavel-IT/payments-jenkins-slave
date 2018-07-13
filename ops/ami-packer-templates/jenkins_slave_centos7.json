@@ -1,0 +1,60 @@
+{
+    "variables": {
+        "aws_access_key": "{{env `aws_access_key`}}",
+        "aws_secret_key": "{{env `aws_secret_key`}}",
+        "source_ami": "{{env `AMI_ID`}}",
+        "region": "us-east-2",
+        "buildtime": "{{ isotime \"2006-01-02-1504\" }}",
+        "account_ids": "291779237797"
+    },
+    "builders": [
+        {
+            "type": "amazon-ebs",
+            "access_key": "{{user `aws_access_key`}}",
+            "secret_key": "{{user `aws_secret_key`}}",
+            "region": "{{ user `region` }}",
+            "force_deregister": true,
+            "force_delete_snapshot": false,
+            "ssh_pty": true,
+            "launch_block_device_mappings": [{
+                "device_name": "/dev/sda1",
+                "volume_size": 10,
+                "volume_type": "gp2",
+                "delete_on_termination": true
+            }],
+            "source_ami": "{{user `source_ami`}}",
+            "instance_type": "t2.micro",
+            "ssh_username": "centos",
+            "ami_name": "Magento Payments AMI Centos7 Jenkins Slave {{user `buildtime`}}",
+            "ami_users": "{{user `account_ids`}}",
+            "tags": {
+                "Team": "Magento Payments",
+                "OS": "Centos7",
+                "Release": "{{user `buildtime`}}",
+                "AMI": "true",
+                "Name": "Magento Payments AMI Centos7 Jenkins Slave"
+            }
+        }
+    ],
+    "provisioners": [
+        {
+            "type": "shell",
+            "inline": [
+                "sleep 30"
+            ]
+        },
+        {
+            "type": "ansible-local",
+            "playbook_file": "ops/ami-packer-templates/ansible/jenkins-swarm.yml",
+            "playbook_dir": "ops/ami-packer-templates/ansible/",
+        }
+
+    ],
+    "post-processors": [
+        {
+            "type": "manifest",
+            "output": "manifest.json",
+            "strip_path": true
+        }
+    ]
+}

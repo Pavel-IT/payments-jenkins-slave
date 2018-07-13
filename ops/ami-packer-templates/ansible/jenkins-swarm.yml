@@ -1,0 +1,75 @@
+- hosts: all
+  gather_facts: yes
+  become: yes
+
+  vars:
+      jenkins_swarm_url: "https://repo.jenkins-ci.org/releases/org/jenkins-ci/plugins/swarm-client/{{ jenkins_swarm_version }}/swarm-client-{{ jenkins_swarm_version }}.jar"
+      service_name: jenkins-swarm-client
+      user: "{{ jenkins_swarm_user | default(jenkins) }}"
+
+  tasks:
+    - name: Jenkins-Swarm - Create home folder for {{ user }}
+      file:
+        path: "/home/{{ user }}"
+        state: directory
+        owner: "{{ user }}"
+        group: "{{ user }}"
+        mode: 0700
+
+    - name: Jenkins-Swarm - Create {{ user }} user
+      user:
+        name: "{{ user }}"
+        createhome: yes
+        home: "/home/{{ user }}"
+        groups:
+         - docker
+        state: present
+        system: yes
+        shell: /bin/bash
+
+    - name: Jenkins-Swarm - Create {{ service_name }} jar directory
+      file:
+        path: /var/lib/jenkins
+        state: directory
+        owner: root
+        group: "{{ user }}"
+        mode: 0750
+        recurse: yes
+
+    - name: Jenkins-Swarm - Create required {{ service_name }} folders
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ user }}"
+        group: "{{ user }}"
+        mode: 0750
+        recurse: yes
+      with_items: ["/var/run/jenkins", "/var/log/jenkins"]
+
+    - name: Jenkins-Swarm - Download {{ service_name }} version {{ jenkins_swarm_version }}
+      get_url:
+        url: "{{ jenkins_swarm_url }}"
+        dest: "/var/lib/jenkins/swarm-client-{{ jenkins_swarm_version }}.jar"
+        owner: root
+        group: "{{ user }}"
+        mode: 0755
+
+    - name: Jenkins-Swarm - Create init script for {{ service_name }}
+      template:
+        src: jenkins-swarm-client.sh
+        dest: "/etc/init.d/{{ service_name }}"
+        owner: root
+        group: root
+        mode: 0755
+
+    - name: Jenkins-Swarm - Add jenkins user to sudoers
+      lineinfile:
+        path: /etc/sudoers
+        state: present
+        line: 'jenkins ALL=(ALL) NOPASSWD: ALL'
+
+    - name: Jenkins-Swarm - Add {{ user }} user to sudoers
+      lineinfile:
+        path: /etc/sudoers
+        state: present
+        line: '{{ user }} ALL=(ALL) NOPASSWD: ALL'
